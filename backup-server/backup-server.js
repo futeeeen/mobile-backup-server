@@ -1120,9 +1120,10 @@ app.get('/', (req, res) => {
           const missingCount = resData.missingCount;
           const skipCount = resData.alreadyBackedUpCount;
           
+          const missingIds = new Set(resData.missingAssets.map(ma => ma.id));
           filesToUpload = allSelectedFiles.filter(file => {
             const id = 'web_' + file.size + '_' + file.lastModified;
-            return resData.missingAssets.some(ma => ma.id === id);
+            return missingIds.has(id);
           });
 
           if (skipCount > 0) {
@@ -1179,13 +1180,6 @@ app.get('/', (req, res) => {
 
       // Initialize queue list UI
       queueList.innerHTML = '';
-      filesToUpload.forEach((file, index) => {
-        const item = document.createElement('div');
-        item.className = 'queue-item';
-        item.id = 'queue-item-' + index;
-        item.innerHTML = '<div class="queue-item-info"><div class="queue-item-name">' + file.name + '</div><div class="queue-item-size">' + formatBytes(file.size) + '</div></div><div class="queue-item-status pending" id="queue-status-' + index + '">等待中</div>';
-        queueList.appendChild(item);
-      });
 
       function uploadNextFile(index) {
         if (index >= filesToUpload.length) {
@@ -1201,15 +1195,21 @@ app.get('/', (req, res) => {
         
         progressCountText.innerText = '正在上傳第 ' + (index + 1) + ' / ' + filesToUpload.length + ' 個檔案';
         
-        const statusEl = document.getElementById('queue-status-' + index);
-        const itemEl = document.getElementById('queue-item-' + index);
+        // Render current item in queue list on-demand
+        const item = document.createElement('div');
+        item.className = 'queue-item';
+        item.id = 'queue-item-' + index;
+        item.innerHTML = '<div class="queue-item-info"><div class="queue-item-name">' + file.name + '</div><div class="queue-item-size">' + formatBytes(file.size) + '</div></div><div class="queue-item-status uploading" id="queue-status-' + index + '">0%</div>';
         
-        statusEl.className = 'queue-item-status uploading';
-        statusEl.innerText = '0%';
+        queueList.appendChild(item);
+        item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         
-        if (itemEl) {
-          itemEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // Keep at most 10 items in the queue list to avoid heavy DOM rendering for large uploads
+        while (queueList.childNodes.length > 10) {
+          queueList.removeChild(queueList.firstChild);
         }
+
+        const statusEl = document.getElementById('queue-status-' + index);
 
         const formData = new FormData();
         formData.append('file', file);
