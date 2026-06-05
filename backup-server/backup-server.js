@@ -1440,6 +1440,16 @@ app.post('/upload', (req, res) => {
         fs.utimesSync(req.file.path, fileDate, fileDate);
       } catch (utimeErr) {
         console.error(`Warning: Failed to set modification time for ${req.file.filename}:`, utimeErr.message);
+        // Retry setting time after 500ms in case Windows Defender or thumbnail indexer temporarily locked the file
+        setTimeout(() => {
+          try {
+            const fileDate = new Date(creationTime);
+            fs.utimesSync(req.file.path, fileDate, fileDate);
+            console.log(`Successfully set modification time for ${req.file.filename} on retry.`);
+          } catch (retryErr) {
+            console.error(`Warning: Retry failed to set modification time for ${req.file.filename}:`, retryErr.message);
+          }
+        }, 500);
       }
     }
 
