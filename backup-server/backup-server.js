@@ -1080,7 +1080,7 @@ app.get('/', (req, res) => {
     }
 
     // Handle files selected
-    async function handleFilesSelected(files) {
+    function handleFilesSelected(files) {
       if (files.length === 0) return;
       
       allSelectedFiles = files;
@@ -1091,63 +1091,10 @@ app.get('/', (req, res) => {
 
       selectionStats.classList.remove('hidden');
       
-      // Perform deduplication check
+      // Update stats info immediately (we will check duplicates in batches later)
       dupBanner.className = 'dup-banner';
-      dupMsg.innerText = '正在進行比對重複項目...';
-      startBtn.disabled = true;
-
-      // Construct asset metadata
-      const assetsMeta = allSelectedFiles.map(file => {
-        // Unique ID format: web_[size]_[lastModified]
-        const uniqueId = 'web_' + file.size + '_' + file.lastModified;
-        return {
-          id: uniqueId,
-          filename: file.name,
-          creationTime: file.lastModified
-        };
-      });
-
-      try {
-        const response = await fetch('/check-duplicates', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ assets: assetsMeta })
-        });
-        
-        const resData = await response.json();
-        
-        if (response.ok) {
-          const missingCount = resData.missingCount;
-          const skipCount = resData.alreadyBackedUpCount;
-          
-          const missingIds = new Set(resData.missingAssets.map(ma => ma.id));
-          filesToUpload = allSelectedFiles.filter(file => {
-            const id = 'web_' + file.size + '_' + file.lastModified;
-            return missingIds.has(id);
-          });
-
-          if (skipCount > 0) {
-            dupBanner.className = 'dup-banner has-duplicates';
-            dupMsg.innerHTML = '比對完成：新增 <strong>' + missingCount + '</strong> 張，略過重複 <strong>' + skipCount + '</strong> 張';
-          } else {
-            dupBanner.className = 'dup-banner';
-            dupMsg.innerHTML = '比對完成：<strong>' + missingCount + '</strong> 張皆為全新照片';
-          }
-
-          startBtn.disabled = missingCount === 0;
-        } else {
-          dupBanner.className = 'dup-banner has-duplicates';
-          dupMsg.innerText = '重複比對發生錯誤：' + (resData.error || '未知錯誤');
-          startBtn.disabled = false; // let them try uploading anyway
-          filesToUpload = allSelectedFiles;
-        }
-      } catch (err) {
-        console.error('Deduplication check error:', err);
-        dupBanner.className = 'dup-banner has-duplicates';
-        dupMsg.innerText = '網路連線失敗，直接啟用全部上傳';
-        startBtn.disabled = false;
-        filesToUpload = allSelectedFiles;
-      }
+      dupMsg.innerHTML = '已選取 <strong>' + allSelectedFiles.length + '</strong> 個檔案，準備就緒。';
+      startBtn.disabled = false;
     }
 
     // Clear selection
@@ -1162,7 +1109,7 @@ app.get('/', (req, res) => {
 
     // Start upload process
     startBtn.addEventListener('click', () => {
-      if (filesToUpload.length === 0) return;
+      if (allSelectedFiles.length === 0) return;
       
       // Transition to uploading view
       selectionCard.classList.add('hidden');
@@ -1173,133 +1120,226 @@ app.get('/', (req, res) => {
 
     // Upload execution logic
     function startBatchUpload() {
-      const totalBytes = filesToUpload.reduce((sum, f) => sum + f.size, 0);
+      const totalBytes = allSelectedFiles.reduce((sum, f) => sum + f.size, 0);
       let totalUploadedBytes = 0;
       let completedFiles = 0;
+      let skippedFiles = 0;
+      let failedFiles = 0;
       const startTime = Date.now();
+      const CHUNK_SIZE = 100; // Process in batches of 100 files to avoid UI lock and connection timeout
 
-      // Initialize queue list UI
       queueList.innerHTML = '';
 
-      function uploadNextFile(index) {
-        if (index >= filesToUpload.length) {
-          // Finished all uploads!
-          setTimeout(() => {
-            showSuccessScreen(filesToUpload.length, totalBytes);
-          }, 600);
+      // Process batches sequentially
+      async function processNextChunk(chunkIndex) {
+        const startIdx = chunkIndex * CHUNK_SIZE;
+        if (startIdx >= allSelectedFiles.length) {
+          // Finished all chunks!
+          showSuccessScreen(completedFiles, skippedFiles, failedFiles, totalBytes);
           return;
         }
 
-        const file = filesToUpload[index];
-        const assetId = 'web_' + file.size + '_' + file.lastModified;
-        
-        progressCountText.innerText = '正在上傳第 ' + (index + 1) + ' / ' + filesToUpload.length + ' 個檔案';
-        
-        // Render current item in queue list on-demand
-        const item = document.createElement('div');
-        item.className = 'queue-item';
-        item.id = 'queue-item-' + index;
-        item.innerHTML = '<div class="queue-item-info"><div class="queue-item-name">' + file.name + '</div><div class="queue-item-size">' + formatBytes(file.size) + '</div></div><div class="queue-item-status uploading" id="queue-status-' + index + '">0%</div>';
-        
-        queueList.appendChild(item);
-        item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        
-        // Keep at most 10 items in the queue list to avoid heavy DOM rendering for large uploads
-        while (queueList.childNodes.length > 10) {
-          queueList.removeChild(queueList.firstChild);
-        }
+        const endIdx = Math.min(startIdx + CHUNK_SIZE, allSelectedFiles.length);
+        const chunkFiles = allSelectedFiles.slice(startIdx, endIdx);
 
-        const statusEl = document.getElementById('queue-status-' + index);
+        progressCountText.innerText = '正在比對第 ' + (startIdx + 1) + ' ~ ' + endIdx + ' 個檔案 (共 ' + allSelectedFiles.length + ' 個)...';
 
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const xhr = new XMLHttpRequest();
-        currentUploadXHR = xhr;
-
-        let lastFileUploadedBytes = 0;
-
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            const filePct = Math.round((e.loaded / e.total) * 100);
-            statusEl.innerText = filePct + '%';
-
-            // Calculate overall progress
-            const fileDelta = e.loaded - lastFileUploadedBytes;
-            lastFileUploadedBytes = e.loaded;
-            totalUploadedBytes += fileDelta;
-
-            const overallPct = Math.round((totalUploadedBytes / totalBytes) * 100);
-            overallProgressBar.style.width = overallPct + '%';
-            overallPercentage.innerText = overallPct + '%';
-
-            // Speed & ETA calculations
-            const elapsedSeconds = (Date.now() - startTime) / 1000;
-            if (elapsedSeconds > 0) {
-              const speedBytesSec = totalUploadedBytes / elapsedSeconds;
-              uploadSpeed.innerText = (speedBytesSec / (1024 * 1024)).toFixed(2) + ' MB/s';
-              
-              const remainingBytes = totalBytes - totalUploadedBytes;
-              const etaSeconds = speedBytesSec > 0 ? Math.round(remainingBytes / speedBytesSec) : 0;
-              
-              if (etaSeconds > 60) {
-                const mins = Math.floor(etaSeconds / 60);
-                const secs = etaSeconds % 60;
-                uploadEta.innerText = mins + ' 分 ' + secs + ' 秒';
-              } else {
-                uploadEta.innerText = etaSeconds + ' 秒';
-              }
-            }
-          }
+        // 1. Prepare assetsMeta for this chunk
+        const assetsMeta = chunkFiles.map(file => {
+          const uniqueId = 'web_' + file.size + '_' + file.lastModified;
+          return {
+            id: uniqueId,
+            filename: file.name,
+            creationTime: file.lastModified
+          };
         });
 
-        xhr.onload = function() {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            statusEl.className = 'queue-item-status success';
-            statusEl.innerText = '已完成';
-            completedFiles++;
+        // 2. Query /check-duplicates for this chunk
+        let missingFiles = [];
+        try {
+          const response = await fetch('/check-duplicates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assets: assetsMeta })
+          });
+          
+          if (response.ok) {
+            const resData = await response.json();
+            const missingIds = new Set(resData.missingAssets.map(ma => ma.id));
             
-            // Adjust to ensure we accounted for full file size in case of rounding
+            missingFiles = chunkFiles.filter(file => {
+              const id = 'web_' + file.size + '_' + file.lastModified;
+              return missingIds.has(id);
+            });
+
+            const chunkSkipped = chunkFiles.length - missingFiles.length;
+            skippedFiles += chunkSkipped;
+            
+            // Immediately account for skipped files size in the progress bar
+            const skippedBytes = chunkFiles.filter(file => {
+              const id = 'web_' + file.size + '_' + file.lastModified;
+              return !missingIds.has(id);
+            }).reduce((sum, f) => sum + f.size, 0);
+            
+            totalUploadedBytes += skippedBytes;
+          } else {
+            // Fallback: upload all files in the chunk on server error
+            missingFiles = chunkFiles;
+          }
+        } catch (err) {
+          console.error('Deduplication check error for chunk:', err);
+          // Fallback: upload all files in the chunk on network error
+          missingFiles = chunkFiles;
+        }
+
+        // 3. Upload missing files in this chunk sequentially
+        let missingFileIndex = 0;
+
+        function uploadNextMissingFile() {
+          if (missingFileIndex >= missingFiles.length) {
+            // Done with this batch, move to next batch
+            processNextChunk(chunkIndex + 1);
+            return;
+          }
+
+          const file = missingFiles[missingFileIndex];
+          const assetId = 'web_' + file.size + '_' + file.lastModified;
+          const globalFileIndex = startIdx + chunkFiles.indexOf(file);
+
+          progressCountText.innerText = '正在上傳第 ' + (globalFileIndex + 1) + ' / ' + allSelectedFiles.length + ' 個檔案 (已略過重複 ' + skippedFiles + ' 個)';
+
+          // Render current item in queue list on-demand
+          const item = document.createElement('div');
+          item.className = 'queue-item';
+          item.id = 'queue-item-' + globalFileIndex;
+          item.innerHTML = '<div class="queue-item-info"><div class="queue-item-name">' + file.name + '</div><div class="queue-item-size">' + formatBytes(file.size) + '</div></div><div class="queue-item-status uploading" id="queue-status-' + globalFileIndex + '">0%</div>';
+          
+          queueList.appendChild(item);
+          item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          
+          // Maintain at most 10 items in the queue list to keep performance high
+          while (queueList.childNodes.length > 10) {
+            queueList.removeChild(queueList.firstChild);
+          }
+
+          const statusEl = document.getElementById('queue-status-' + globalFileIndex);
+
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const xhr = new XMLHttpRequest();
+          currentUploadXHR = xhr;
+
+          let lastFileUploadedBytes = 0;
+
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+              const filePct = Math.round((e.loaded / e.total) * 100);
+              statusEl.innerText = filePct + '%';
+
+              // Calculate overall progress
+              const fileDelta = e.loaded - lastFileUploadedBytes;
+              lastFileUploadedBytes = e.loaded;
+              totalUploadedBytes += fileDelta;
+
+              const overallPct = Math.min(Math.round((totalUploadedBytes / totalBytes) * 100), 100);
+              overallProgressBar.style.width = overallPct + '%';
+              overallPercentage.innerText = overallPct + '%';
+
+              // Speed & ETA calculations
+              const elapsedSeconds = (Date.now() - startTime) / 1000;
+              if (elapsedSeconds > 0) {
+                const speedBytesSec = totalUploadedBytes / elapsedSeconds;
+                uploadSpeed.innerText = (speedBytesSec / (1024 * 1024)).toFixed(2) + ' MB/s';
+                
+                const remainingBytes = Math.max(totalBytes - totalUploadedBytes, 0);
+                const etaSeconds = speedBytesSec > 0 ? Math.round(remainingBytes / speedBytesSec) : 0;
+                
+                if (etaSeconds > 60) {
+                  const mins = Math.floor(etaSeconds / 60);
+                  const secs = etaSeconds % 60;
+                  uploadEta.innerText = mins + ' 分 ' + secs + ' 秒';
+                } else {
+                  uploadEta.innerText = etaSeconds + ' 秒';
+                }
+              }
+            }
+          });
+
+          xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              statusEl.className = 'queue-item-status success';
+              statusEl.innerText = '已完成';
+              completedFiles++;
+              
+              // Adjust to ensure we accounted for full file size in case of rounding
+              const fileDelta = file.size - lastFileUploadedBytes;
+              totalUploadedBytes += fileDelta;
+
+              const overallPct = Math.min(Math.round((totalUploadedBytes / totalBytes) * 100), 100);
+              overallProgressBar.style.width = overallPct + '%';
+              overallPercentage.innerText = overallPct + '%';
+
+              missingFileIndex++;
+              uploadNextMissingFile();
+            } else {
+              statusEl.className = 'queue-item-status error';
+              statusEl.innerText = '失敗';
+              console.error('File upload failed', xhr.responseText);
+              failedFiles++;
+
+              const fileDelta = file.size - lastFileUploadedBytes;
+              totalUploadedBytes += fileDelta;
+
+              missingFileIndex++;
+              uploadNextMissingFile();
+            }
+          };
+
+          xhr.onerror = function() {
+            statusEl.className = 'queue-item-status error';
+            statusEl.innerText = '網路錯誤';
+            console.error('XHR network error');
+            failedFiles++;
+
             const fileDelta = file.size - lastFileUploadedBytes;
             totalUploadedBytes += fileDelta;
 
-            uploadNextFile(index + 1);
-          } else {
-            statusEl.className = 'queue-item-status error';
-            statusEl.innerText = '失敗';
-            console.error('File upload failed', xhr.responseText);
-            
-            // Skip and proceed next
-            uploadNextFile(index + 1);
-          }
-        };
+            missingFileIndex++;
+            uploadNextMissingFile();
+          };
 
-        xhr.onerror = function() {
-          statusEl.className = 'queue-item-status error';
-          statusEl.innerText = '網路錯誤';
-          console.error('XHR network error');
-          
-          // Skip and proceed next
-          uploadNextFile(index + 1);
-        };
+          // Prepare upload query parameters for directory resolution
+          const uploadUrl = '/upload?creationTime=' + file.lastModified + 
+                            '&assetId=' + encodeURIComponent(assetId) + 
+                            '&filename=' + encodeURIComponent(file.name);
 
-        // Prepare upload query parameters for directory resolution
-        const uploadUrl = '/upload?creationTime=' + file.lastModified + 
-                          '&assetId=' + encodeURIComponent(assetId) + 
-                          '&filename=' + encodeURIComponent(file.name);
+          xhr.open('POST', uploadUrl);
+          xhr.send(formData);
+        }
 
-        xhr.open('POST', uploadUrl);
-        xhr.send(formData);
+        uploadNextMissingFile();
       }
 
-      uploadNextFile(0);
+      processNextChunk(0);
     }
 
     // Show success view
-    function showSuccessScreen(count, size) {
+    function showSuccessScreen(completed, skipped, failed, totalSize) {
       uploadingCard.classList.add('hidden');
       successCard.classList.remove('hidden');
-      successSummary.innerHTML = '成功備份了 <strong>' + count + '</strong> 個檔案，共計 <strong>' + formatBytes(size) + '</strong>。<br>重複的相片均已自動略過，並按照照片拍攝年月自動整理歸檔。';
+      
+      let summaryText = '備份完成！此次作業共處理了 <strong>' + (completed + skipped + failed) + '</strong> 個檔案，總容量 <strong>' + formatBytes(totalSize) + '</strong>。<br>';
+      summaryText += '✨ 成功備份：<strong>' + completed + '</strong> 張全新照片/影片。<br>';
+      if (skipped > 0) {
+        summaryText += '⏭ 略過重複：<strong>' + skipped + '</strong> 張已存在檔案。<br>';
+      }
+      if (failed > 0) {
+        summaryText += '❌ 上傳失敗：<strong>' + failed + '</strong> 張檔案。<br>';
+      }
+      summaryText += '照片均已按照拍攝年月自動整理歸檔。';
+      
+      successSummary.innerHTML = summaryText;
       
       // Reload server info
       loadServerStatus();
