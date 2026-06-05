@@ -1,8 +1,15 @@
 @echo off
 title Expo App Server
 cd /d "%~dp0"
+
+echo ==================================================
+echo Starting Backup Server...
+echo ==================================================
+start "" "%~dp0backup-server.exe"
+
 cd Expo-app
 
+echo.
 echo ==================================================
 echo Starting Expo App Server...
 echo ==================================================
