@@ -1,20 +1,21 @@
 @echo off
-title Expo App Server - iOS Wi-Fi Photo Backup
-cd /d "%~dp0Expo-app"
+title Expo App Server
+cd /d "%~dp0"
+cd Expo-app
 
 echo ==================================================
-echo 🚀 正在準備啟動 iOS 照片備份手機 APP 伺服器...
+echo Starting Expo App Server...
 echo ==================================================
 
 if not exist node_modules (
-    echo [資訊] 偵測到尚未安裝套件，正在自動執行 npm install...
-    echo [資訊] 這通常需要 1-2 分鐘，請稍候...
+    echo [Info] node_modules not found. Running npm install...
+    echo [Info] Please wait, this may take a minute...
     call npm install
 )
 
 echo.
-echo [資訊] 正在啟動 Expo 伺服器...
-echo [提示] 啟動後，請在 iPhone 開啟 Expo Go 並掃描畫面上顯示的 QR Code 連線。
+echo [Info] Starting Expo...
+echo [Info] Once started, scan the QR code with your iPhone Camera to open Expo Go.
 echo ==================================================
 echo.
 
