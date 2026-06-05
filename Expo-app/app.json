@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "tmp-project",
-    "slug": "tmp-project",
+    "name": "ios-backup-server",
+    "slug": "ios-backup-server",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "tmpproject",
+    "scheme": "iosbackupserver",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -34,7 +34,16 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "允許此 App 讀取您的相簿以進行備份到電腦的主機中。",
+          "savePhotosPermission": "允許此 App 儲存相片到您的相簿中。"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

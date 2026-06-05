@@ -1,43 +1,29 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Backup Index (local database)
+backup-index.json
 
-# dependencies
+# User backup directory
+ios-camera-backups-file/
+backup-server/ios-camera-backups-file/
+
+# Node dependencies
 node_modules/
+**/node_modules/
 
-# Expo
+# Expo directories
 .expo/
+**/.expo/
+
+# Build outputs
 dist/
-web-build/
-expo-env.d.ts
+**/dist/
+backup-server.exe
+**/backup-server.exe
 
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+# Local logs
+*.log
+**/npm-debug.log*
 
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-example
-
-# generated native folders
-/ios
-/android
+# Environment variables
+.env
+.env.local
+.env.*.local

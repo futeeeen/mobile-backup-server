@@ -1,56 +1,62 @@
-# Welcome to your Expo app 👋
+# iOS 本地 Wi-Fi 照片備份系統 (Local Wi-Fi Photo Backup System)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+這是一個專為 iOS 裝置（iPhone/iPad）設計的高速本地 Wi-Fi 照片與影片備份系統。本系統採用 Node.js 開發後端伺服器，並提供兩種使用方式，皆可免經由外網、完全在局域網（Wi-Fi）內快速且安全地備份照片。
 
-## Get started
+## 專案資料夾結構
 
-1. Install dependencies
+本專案結構經過重整，分為以下主要部分：
+* **`backup-server.exe`**：位於根目錄的獨立 Windows 執行檔，啟動備份伺服器只需雙擊此檔案。
+* **`backup-server/`**：備份伺服器的原始碼目錄，包含後端 logic 以及網頁端介面。
+* **`Expo-app/`**：Expo 行動應用程式的原始碼目錄，提供更強大的手機端備份介面與功能。
+* **`ios-camera-backups-file/`**：預設的備份檔案儲存資料夾（首次備份時會自動建立）。
 
-   ```bash
-   npm install
-   ```
+---
 
-2. Start the app
+## 兩種使用方式
 
-   ```bash
-   npx expo start
-   ```
+本系統支援以下兩種操作模式。不論使用哪種模式，都必須先**啟動電腦端的 `backup-server.exe`**。
 
-In the output, you'll find options to open the app in a
+### 1. Web 瀏覽器備份模式 (無須安裝 App)
+適用於臨時、快速備份，或不想在手機安裝任何 App 的使用者。
+* **操作步驟**：
+  1. 雙擊執行根目錄的 `backup-server.exe`，畫面上會顯示一個 QR Code。
+  2. 確保 iPhone 與電腦連線到**同一個 Wi-Fi 網路**。
+  3. 使用 iPhone 的原生相機掃描電腦畫面上的 QR Code，即可直接在 Safari 瀏覽器中打開備份網頁。
+  4. 在網頁中點選「選擇照片」，選取要備份的照片或影片，然後點擊「開始備份」即可高速傳輸。
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 2. Expo App 備份模式 (功能更強大)
+適用於需要進階功能（例如：全選照片、按時間段篩選、更穩定的背景傳輸等）的使用者。
+* **進階功能**：
+  * **全選與反選**：一鍵選取數千張照片，無須逐一勾選。
+  * **時間段篩選**：可快速篩選出特定日期範圍（例如：特定旅遊期間）的照片進行備份。
+  * **背景同步**：傳輸更為穩定，提供更好的操作流暢度。
+* **操作步驟**：
+  1. 雙擊執行電腦端的 `backup-server.exe`。
+  2. 在手機上安裝 Expo Go App（或編譯本專案的 `Expo-app` 傳輸到手機）。
+  3. 啟動 `Expo-app`，輸入電腦端畫面上顯示的伺服器 IP 位置進行連線。
+  4. 使用 App 內建的進階相簿選擇器進行備份。
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## 伺服器配置與備份索引說明
 
-When you're ready, run:
+### 1. 隱藏的備份索引檔 `backup-index.json`
+* **用途**：為了實現**精準的去重複（Deduplication）**，伺服器會在執行檔同層（即根目錄）產生一個 `backup-index.json` 檔案。此檔案記錄了所有已成功備份的照片識別碼、檔案大小與時間戳記。
+* **Windows 隱藏屬性**：為了保持根目錄的整潔並防止使用者誤刪，伺服器在 Windows 系統上建立或更新此檔案時，會自動將其設定為**隱藏檔案**。
+* **自我修復機制（Self-Healing）**：
+  * 如果此檔案不存在，或者不幸被刪除，**請不用擔心**。
+  * 伺服器在每次啟動時，會自動掃描現有的備份儲存資料夾（例如 `ios-camera-backups-file`），並根據檔案結構與屬性**自動重建索引檔案**。
+  * 重建完成後，去重複功能與後續備份依然可以完美運作，確保不會重複備份相同的檔案，亦不會造成任何資料遺失。
 
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### 2. 備份配置 `backup-config.json`
+* **預設行為**：當根目錄沒有此設定檔時，伺服器會自動使用預設值：
+  * 監聽埠口 (Port)：`11900`
+  * 備份路徑 (Backup Path)：`./ios-camera-backups-file`
+* **自訂設定**：如果您需要更改埠口或備份路徑，可以在與 `backup-server.exe` 同層的目錄下建立一個名為 `backup-config.json` 的設定檔，內容範例如下：
+  ```json
+  {
+    "port": 11900,
+    "backupDir": "D:/MyPhotosBackup"
+  }
+  ```
+  *(註：本專案的根目錄預設不提供此檔案以維持整潔，需要自訂時手動建立即可。)*
