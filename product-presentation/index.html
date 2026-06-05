@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Local Wi-Fi Sync | iOS 備份系統介紹</title>
+  <meta name="description" content="Local Wi-Fi Sync 是一套讓 iPhone 與 iPad 透過區域網路備份照片與影片到 Windows 電腦的本機備份系統。" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <header class="topbar" aria-label="主要導覽">
+    <a class="brand" href="#hero" aria-label="回到首頁">
+      <span class="brand-mark">L</span>
+      <span>
+        <strong>Local Wi-Fi Sync</strong>
+        <small>iOS Backup System</small>
+      </span>
+    </a>
+    <nav class="nav-links">
+      <a href="#problem">痛點</a>
+      <a href="#journey">流程</a>
+      <a href="#workflow">工作流</a>
+      <a href="#architecture">架構</a>
+      <a href="#trust">可靠性</a>
+      <a href="#demo">情境</a>
+    </nav>
+    <button class="ghost-button" id="focusModeBtn" type="button">簡報模式</button>
+  </header>
+
+  <main>
+    <section class="hero section" id="hero" data-section>
+      <div class="hero-copy reveal">
+        <p class="eyebrow">Local-first iOS backup</p>
+        <h1>把相簿安全送回自己的電腦。</h1>
+        <p class="lead">透過同一個 Wi-Fi，將 iPhone / iPad 的照片與影片備份到 Windows 本機資料夾。免雲端、可去重、可用 Web 或 Expo App 操作。</p>
+        <div class="hero-actions">
+          <a class="primary-button" href="#demo">看互動情境</a>
+          <a class="secondary-button" href="#architecture">看技術架構</a>
+        </div>
+        <div class="metric-strip" aria-label="產品核心能力">
+          <div><strong>11900</strong><span>預設本機服務 Port</span></div>
+          <div><strong>10GB</strong><span>單檔上傳上限</span></div>
+          <div><strong>2</strong><span>Web / Expo 雙入口</span></div>
+        </div>
+      </div>
+
+      <div class="hero-visual reveal delay-1" aria-label="本機備份情境視覺">
+        <img class="glow-asset" src="./assets/logo-glow.png" alt="" />
+        <div class="device-scene">
+          <div class="wifi-ring ring-one"></div>
+          <div class="wifi-ring ring-two"></div>
+          <div class="phone-mock">
+            <div class="phone-speaker"></div>
+            <div class="photo-grid">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <div class="upload-pill">42 items</div>
+          </div>
+          <div class="transfer-line">
+            <i></i><i></i><i></i>
+          </div>
+          <div class="laptop-mock">
+            <div class="window-bar">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="folder-panel">
+              <div class="folder-head">
+                <b>ios-camera-backups-file</b>
+                <em>Live</em>
+              </div>
+              <div class="folder-row"><span>2026-06</span><strong>18.4 GB</strong></div>
+              <div class="folder-row"><span>2026-05</span><strong>31.7 GB</strong></div>
+              <div class="folder-row active"><span>IMG_4821.HEIC</span><strong>Saved</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section problem-grid" id="problem" data-section>
+      <div class="section-heading reveal">
+        <p class="eyebrow">Why it matters</p>
+        <h2>手機容量爆滿時，雲端不一定是最自在的答案。</h2>
+      </div>
+      <article class="problem-card reveal">
+        <span>01</span>
+        <h3>照片越來越大</h3>
+        <p>4K 影片、Live Photo 與大量截圖很快佔滿 iCloud 或手機容量，手動接線整理又容易中斷。</p>
+      </article>
+      <article class="problem-card reveal delay-1">
+        <span>02</span>
+        <h3>資料不想上雲</h3>
+        <p>家庭照片、工作素材或敏感影像只想留在自己的電腦，不希望依賴第三方雲端同步。</p>
+      </article>
+      <article class="problem-card reveal delay-2">
+        <span>03</span>
+        <h3>重複檔難清</h3>
+        <p>多次備份最怕重複複製。這套系統以 assetId、時間與檔名索引，先判斷再上傳。</p>
+      </article>
+    </section>
+
+    <section class="section split-section" id="journey" data-section>
+      <div class="section-heading reveal">
+        <p class="eyebrow">Product journey</p>
+        <h2>同一套伺服器，提供兩種備份入口。</h2>
+      </div>
+      <div class="tabs-card reveal">
+        <div class="tab-buttons" role="tablist" aria-label="入口選擇">
+          <button class="active" type="button" data-journey="web">Safari Web</button>
+          <button type="button" data-journey="expo">Expo App</button>
+          <button type="button" data-journey="desktop">Windows 端</button>
+        </div>
+        <div class="journey-layout">
+          <div id="journeyCopy"></div>
+          <div id="journeyVisual"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section workflow-section" id="workflow" data-section>
+      <div class="section-heading reveal">
+        <p class="eyebrow">Backup lifecycle</p>
+        <h2>從啟動服務到完成備份，每一步都可觀察、可恢復。</h2>
+      </div>
+      <div class="workflow-grid">
+        <div class="workflow-step reveal">
+          <b>1</b>
+          <h3>啟動服務</h3>
+          <p>執行 `backup-server.exe` 或 `npm start`，伺服器自動建立備份資料夾並顯示區網網址與 QR Code。</p>
+        </div>
+        <div class="workflow-step reveal delay-1">
+          <b>2</b>
+          <h3>連上同一 Wi-Fi</h3>
+          <p>iPhone 開 Safari 或 Expo App，連到 `http://電腦IP:11900`，確認 `/status` 回傳目前備份統計。</p>
+        </div>
+        <div class="workflow-step reveal delay-2">
+          <b>3</b>
+          <h3>掃描與去重</h3>
+          <p>前端送出素材 metadata，伺服器用 `backup-index.json` 判斷哪些已經備份，只留下待上傳項目。</p>
+        </div>
+        <div class="workflow-step reveal delay-3">
+          <b>4</b>
+          <h3>分批上傳</h3>
+          <p>檔案以 multipart upload 傳到本機，依建立時間歸入 `YYYY-MM` 子資料夾，並更新索引。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section architecture-section" id="architecture" data-section>
+      <div class="section-heading reveal">
+        <p class="eyebrow">Architecture</p>
+        <h2>輕量 Node 伺服器，支撐 Web 與 App 兩條路徑。</h2>
+      </div>
+      <div class="architecture-shell reveal">
+        <div class="flow-nodes" aria-label="架構節點">
+          <button class="active" type="button" data-flow="client">iOS Client</button>
+          <button type="button" data-flow="server">Express Server</button>
+          <button type="button" data-flow="index">Backup Index</button>
+          <button type="button" data-flow="storage">Local Storage</button>
+        </div>
+        <div class="flow-detail" id="flowDetail"></div>
+      </div>
+    </section>
+
+    <section class="section trust-section" id="trust" data-section>
+      <div class="section-heading reveal">
+        <p class="eyebrow">Reliability model</p>
+        <h2>不是只把檔案丟過去，而是讓備份過程更安心。</h2>
+      </div>
+      <div class="trust-layout reveal">
+        <div class="trust-list">
+          <button class="active" type="button" data-trust="local">本機優先</button>
+          <button type="button" data-trust="dedupe">去重索引</button>
+          <button type="button" data-trust="rebuild">自我修復</button>
+          <button type="button" data-trust="ops">可設定部署</button>
+        </div>
+        <div class="trust-panel" id="trustPanel"></div>
+      </div>
+    </section>
+
+    <section class="section demo-section" id="demo" data-section>
+      <div class="section-heading reveal">
+        <p class="eyebrow">Interactive demo</p>
+        <h2>選一種備份情境，看系統如何回應。</h2>
+      </div>
+      <div class="demo-layout reveal">
+        <div class="scenario-buttons">
+          <button class="active" type="button" data-scenario="newPhone">新手機整理</button>
+          <button type="button" data-scenario="travel">旅行大量影片</button>
+          <button type="button" data-scenario="family">家庭相簿歸檔</button>
+        </div>
+        <div class="demo-card" id="scenarioCard"></div>
+      </div>
+    </section>
+
+    <section class="section closing-section" id="closing" data-section>
+      <div class="closing-card reveal">
+        <p class="eyebrow">Ready for local backup</p>
+        <h2>把相簿備份這件事，從雲端訂閱拉回自己的桌面。</h2>
+        <p>Local Wi-Fi Sync 適合想保留資料自主權、又不想每次接線手動整理的人。現在的 PoC 已具備可執行伺服器、Web 上傳介面、Expo App 掃描備份與本機索引去重。</p>
+        <a class="primary-button" href="#hero">回到開頭</a>
+      </div>
+    </section>
+  </main>
+
+  <aside class="slide-rail" aria-label="段落快速導覽">
+    <button class="active" type="button" data-target="hero"><span>首頁</span></button>
+    <button type="button" data-target="problem"><span>痛點</span></button>
+    <button type="button" data-target="journey"><span>入口</span></button>
+    <button type="button" data-target="workflow"><span>工作流</span></button>
+    <button type="button" data-target="architecture"><span>架構</span></button>
+    <button type="button" data-target="trust"><span>可靠性</span></button>
+    <button type="button" data-target="demo"><span>情境</span></button>
+  </aside>
+
+  <script src="./app.js"></script>
+</body>
+</html>
