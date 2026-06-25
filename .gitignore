@@ -13,6 +13,9 @@ node_modules/
 .expo/
 **/.expo/
 
+# Agent & local settings
+.claude/
+
 # Build outputs
 dist/
 **/dist/
